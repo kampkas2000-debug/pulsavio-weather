@@ -35,7 +35,7 @@ def fields(step):
         p += amp * np.exp(-(dist_deg(LAT2, LON2, lat, lo) / rad) ** 2)
     # geostrophic-like wind from the pressure gradient (+ friction turning)
     dpdy, dpdx = np.gradient(p)
-    f = np.sign(LAT2) * np.maximum(np.abs(np.sin(np.radians(LAT2))), 0.25)
+    f = np.where(LAT2 >= 0, 1.0, -1.0) * np.maximum(np.abs(np.sin(np.radians(LAT2))), 0.25)
     coslat = np.maximum(np.cos(np.radians(LAT2)), 0.1)
     k = 3.2
     u = -k * (-dpdy) / f * 1.0 - 0.3 * dpdx / coslat

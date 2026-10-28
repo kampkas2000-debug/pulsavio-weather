@@ -8,7 +8,7 @@ on:
   workflow_dispatch: {}
   push:
     branches: [main]
-    paths: ["engine/**", ".github/workflows/maps.yml"]
+    paths: ["engine/**", "tests/**", ".github/workflows/maps.yml"]
 
 permissions:
   contents: write
