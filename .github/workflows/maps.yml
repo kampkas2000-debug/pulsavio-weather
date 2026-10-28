@@ -41,11 +41,25 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" != "schedule" ]; then echo "changed=true" >> "$GITHUB_OUTPUT"; else python engine/build.py --check; fi
       - if: steps.check.outputs.changed == 'true'
-        run: python engine/build.py --out site
+        run: set -o pipefail; python engine/build.py --out site 2>&1 | tee build.log
       - if: steps.check.outputs.changed == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: site
+      # A short report on the "status" branch (readable without logging in to GitHub).
+      - name: Report
+        if: always() && (github.event_name != 'schedule' || steps.check.outputs.changed == 'true')
+        run: |
+          {
+            echo "run: ${{ github.run_id }} event: ${{ github.event_name }} at $(date -u +%FT%TZ)"
+            echo "job status: ${{ job.status }}"
+            echo "--- build log (last 80 lines) ---"; tail -n 80 build.log 2>/dev/null || echo "(no build log)"
+            echo "--- site files ---"; ls -R site 2>/dev/null | head -20; du -sh site 2>/dev/null || true
+          } > /tmp/status.txt
+          git config user.name "pulsavio-maps"; git config user.email "actions@users.noreply.github.com"
+          git fetch --depth 1 origin status 2>/dev/null && git checkout -B status FETCH_HEAD || git checkout --orphan status
+          git rm -rq --cached . 2>/dev/null || true
+          cp /tmp/status.txt status.txt && git add status.txt && git commit -qm "Status ${{ github.run_id }}" && git push -qf origin status
       # GitHub pauses scheduled workflows in repositories with no activity for 60 days:
       # one empty commit a month keeps the maps updating.
       - name: Keep the schedule alive
