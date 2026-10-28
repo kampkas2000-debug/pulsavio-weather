@@ -1,5 +1,6 @@
 # Every hour: if ECMWF or GFS published a newer run, download it, make the map images and
-# publish them on GitHub Pages (https://kampkas2000-debug.github.io/pulsavio-weather/).
+# publish them on the "data" branch, served at
+# https://raw.githubusercontent.com/kampkas2000-debug/pulsavio-weather/data/ (no Pages setting needed).
 name: Weather maps
 
 on:
@@ -12,15 +13,13 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: weather-maps
   cancel-in-progress: false
 
 env:
-  PAGES_URL: https://kampkas2000-debug.github.io/pulsavio-weather/
+  PAGES_URL: https://raw.githubusercontent.com/kampkas2000-debug/pulsavio-weather/data/
 
 jobs:
   build:
@@ -42,10 +41,15 @@ jobs:
           if [ "${{ github.event_name }}" != "schedule" ]; then echo "changed=true" >> "$GITHUB_OUTPUT"; else python engine/build.py --check; fi
       - if: steps.check.outputs.changed == 'true'
         run: set -o pipefail; python engine/build.py --out site 2>&1 | tee build.log
-      - if: steps.check.outputs.changed == 'true'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
+      # Replace the "data" branch with the new run (one commit, no history, so the repo stays small).
+      - name: Publish
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          cd site
+          git init -q -b data
+          git config user.name "pulsavio-maps"; git config user.email "actions@users.noreply.github.com"
+          git add -A && git commit -qm "Maps $(date -u +%FT%H:%MZ)"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" data
       # A short report on the "status" branch (readable without logging in to GitHub).
       - name: Report
         if: always() && (github.event_name != 'schedule' || steps.check.outputs.changed == 'true')
@@ -70,13 +74,3 @@ jobs:
             git commit --allow-empty -m "Keep weather maps schedule active" && git push
           fi
 
-  deploy:
-    needs: build
-    if: needs.build.outputs.changed == 'true'
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
