@@ -1,0 +1,2 @@
+ecmwf 2026112100: 61 steps in 254s
+gfs 2026112106: 61 steps in 41s
